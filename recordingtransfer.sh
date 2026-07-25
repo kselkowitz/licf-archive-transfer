@@ -1,11 +1,11 @@
 #!/bin/bash
 
-SOURCE="/usr/local/NetSapiens/LiCf/recordings/archive"
-DEST="/usr/local/NetSapiens/LiCf/recordings/archive"
-REMOTE="root@recording-server.mydomain.tld"
+SOURCE="/datastore/recordings/archive"
+DEST="/mnt/sdb1/recordings/archive"
+REMOTE="user@ash-ip"
 LOG="/tmp/transfer_completed.log"
 BANDWIDTH="51200k"
-SSH_OPTS="-T -c aes128-gcm@openssh.com -o Compression=no -i /root/.ssh/sshkey"
+SSH_OPTS="-T -c aes128-gcm@openssh.com -o Compression=no"
 
 # Pre-populate log with dirs already on destination
 echo "Checking destination for existing directories..."
@@ -43,10 +43,11 @@ for domain in "$SOURCE"/*/; do
                 # Ensure destination directory exists
                 ssh $SSH_OPTS $REMOTE "mkdir -p $DEST/$chunk"
 
-                # Transfer, skip files already on destination
-                tar cf - "$datedir" | pv -L $BANDWIDTH | \
+                # -C on source side makes paths relative, extract into DEST directly
+                tar cf - -C "$SOURCE" "$domain_name/$year_name/$month_name/$date_name" | \
+                    pv -L $BANDWIDTH | \
                     ssh $SSH_OPTS $REMOTE \
-                    "tar xf - --skip-old-files -C $DEST/$domain_name/$year_name/$month_name"
+                    "tar xf - --skip-old-files -C $DEST"
 
                 if [ $? -eq 0 ]; then
                     echo "$chunk" >> "$LOG"
